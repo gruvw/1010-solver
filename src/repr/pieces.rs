@@ -7,37 +7,76 @@ pub mod Pieces {
         grid: 1 << ROW_LENGTH * NB_ROWS - 1,
         weight: 1,
     };
-    pub const DASH2: Grid = Grid {
+    pub const DASH_2: Grid = Grid {
         grid: DOT.grid | DOT.grid >> DOT.weight,
         weight: DOT.weight * 2,
     };
-    pub const DASH3: Grid = Grid {
-        grid: DOT.grid | DASH2.grid >> DOT.weight,
-        weight: DOT.weight + DASH2.weight,
+    pub const DASH_3: Grid = Grid {
+        grid: DOT.grid | DASH_2.grid >> DOT.weight,
+        weight: DOT.weight + DASH_2.weight,
     };
-    pub const DASH4: Grid = Grid {
-        grid: DASH2.grid | DASH2.grid >> DASH2.weight,
-        weight: DASH2.weight * 2,
+    pub const DASH_4: Grid = Grid {
+        grid: DASH_2.grid | DASH_2.grid >> DASH_2.weight,
+        weight: DASH_2.weight * 2,
     };
-    pub const DASH5: Grid = Grid {
-        grid: DOT.grid | DASH4.grid >> DOT.weight,
-        weight: DOT.weight + DASH4.weight,
+    pub const DASH_5: Grid = Grid {
+        grid: DOT.grid | DASH_4.grid >> DOT.weight,
+        weight: DOT.weight + DASH_4.weight,
     };
-    pub const BAR2: Grid = Grid {
+    pub const BAR_2: Grid = Grid {
         grid: DOT.grid | DOT.grid >> DOT.weight * ROW_LENGTH,
         weight: DOT.weight * 2,
     };
-    pub const BAR3: Grid = Grid {
-        grid: DOT.grid | BAR2.grid >> DOT.weight * ROW_LENGTH,
-        weight: DOT.weight + BAR2.weight,
+    pub const BAR_3: Grid = Grid {
+        grid: DOT.grid | BAR_2.grid >> DOT.weight * ROW_LENGTH,
+        weight: DOT.weight + BAR_2.weight,
     };
-    pub const BAR4: Grid = Grid {
-        grid: BAR2.grid | BAR2.grid >> BAR2.weight * ROW_LENGTH,
-        weight: BAR2.weight * 2,
+    pub const BAR_4: Grid = Grid {
+        grid: BAR_2.grid | BAR_2.grid >> BAR_2.weight * ROW_LENGTH,
+        weight: BAR_2.weight * 2,
     };
-    pub const BAR5: Grid = Grid {
-        grid: DOT.grid | BAR4.grid >> DOT.weight * ROW_LENGTH,
-        weight: DOT.weight + BAR4.weight,
+    pub const BAR_5: Grid = Grid {
+        grid: DOT.grid | BAR_4.grid >> DOT.weight * ROW_LENGTH,
+        weight: DOT.weight + BAR_4.weight,
     };
-    // pub const L: Grid = BAR2 + DOT.moved(0, 1);
+    pub const DOUBLE_N: Grid = Grid {
+        grid: DASH_2.grid | DOT.grid >> ROW_LENGTH,
+        weight: DASH_2.weight + DOT.weight,
+    };
+    pub const DOUBLE_E: Grid = Grid {
+        grid: DOT.grid | BAR_2.grid >> DOT.weight,
+        weight: DOT.weight + BAR_2.weight,
+    };
+    pub const DOUBLE_S: Grid = Grid {
+        grid: DOT.grid >> DOT.weight | DASH_2.grid >> ROW_LENGTH,
+        weight: DOT.weight + DASH_2.weight,
+    };
+    pub const DOUBLE_W: Grid = Grid {
+        grid: BAR_2.grid | DOT.grid >> ROW_LENGTH + DOT.weight,
+        weight: BAR_2.weight + DOT.weight,
+    };
+    pub const TRIPLE_N: Grid = Grid {
+        grid: DASH_3.grid | BAR_2.grid >> ROW_LENGTH,
+        weight: DASH_3.weight + BAR_2.weight,
+    };
+    pub const TRIPLE_E: Grid = Grid {
+        grid: DASH_3.grid | BAR_2.grid >> ROW_LENGTH + DASH_2.weight,
+        weight: DASH_3.weight + BAR_2.weight,
+    };
+    pub const TRIPLE_S: Grid = Grid {
+        grid: BAR_3.grid >> DASH_2.weight | DASH_2.grid >> ROW_LENGTH * DASH_2.weight,
+        weight: BAR_3.weight + DASH_2.weight,
+    };
+    pub const TRIPLE_W: Grid = Grid {
+        grid: BAR_3.grid | DASH_2.grid >> ROW_LENGTH * DASH_2.weight + DOT.weight,
+        weight: BAR_3.weight + DASH_2.weight,
+    };
+    pub const SQUARE_SMALL: Grid = Grid {
+        grid: BAR_2.grid | BAR_2.grid >> DOT.weight,
+        weight: BAR_2.weight * 2,
+    };
+    pub const SQUARE_BIG: Grid = Grid {
+        grid: BAR_3.grid | BAR_3.grid >> DOT.weight | BAR_3.grid >> DOT.weight * 2,
+        weight: BAR_3.weight * 3,
+    };
 }
