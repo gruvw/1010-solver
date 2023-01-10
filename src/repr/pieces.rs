@@ -1,7 +1,30 @@
 use super::grid;
 
+#[allow(non_snake_case)]
 pub mod Pieces {
     use super::grid::{Grid, NB_ROWS, ROW_LENGTH};
+
+    pub const PIECES: [(Grid, u32); 19] = [
+        (DOT, 2),
+        (DASH_2, 3),
+        (DASH_3, 3),
+        (DASH_4, 2),
+        (DASH_5, 2),
+        (BAR_2, 3),
+        (BAR_3, 3),
+        (BAR_4, 2),
+        (BAR_5, 2),
+        (DOUBLE_N, 2),
+        (DOUBLE_E, 2),
+        (DOUBLE_S, 2),
+        (DOUBLE_W, 2),
+        (TRIPLE_N, 1),
+        (TRIPLE_E, 1),
+        (TRIPLE_S, 1),
+        (TRIPLE_W, 1),
+        (SQUARE_SMALL, 6),
+        (SQUARE_BIG, 2),
+    ];
 
     pub const DOT: Grid = Grid {
         grid: 1 << ROW_LENGTH * NB_ROWS - 1,

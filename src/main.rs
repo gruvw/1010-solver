@@ -1,34 +1,31 @@
 mod repr;
 
-use repr::pieces::Pieces;
+use std::io::{stdin, stdout, Write};
 
-use crate::repr::{
-    grid::{Grid, COL, EMPTY, ROW},
-    pieces::Pieces::*,
-};
+use crate::repr::{grid::Grid, pieces::Pieces::*};
 
 fn main() {
-    // println!("{}", (EMPTY).ways(&TRIPLE_N).len());
-    // println!("{}", (EMPTY).ways(&TRIPLE_E).len());
-    // println!("{}", (EMPTY).ways(&TRIPLE_S).len());
-    // println!("{}", (EMPTY).ways(&TRIPLE_W).len());
+    let mut board = loop {
+        print!("Enter starting board: ");
+        stdout().flush().unwrap();
+        let mut user_input = String::new();
+        stdin().read_line(&mut user_input).unwrap();
+        if let Some(grid) = Grid::from_str(&user_input.trim()) {
+            break grid;
+        }
+    };
+    println!("Initial board:\n{}", board);
 
-    // println!("{}", (EMPTY).ways(&DOUBLE_N).len());
-    // println!("{}", (EMPTY).ways(&DOUBLE_E).len());
-    // println!("{}", (EMPTY).ways(&DOUBLE_S).len());
-    // println!("{}", (EMPTY).ways(&DOUBLE_W).len());
-
-    // println!("{}", (EMPTY).ways(&DASH_2).len());
-    // println!("{}", (EMPTY).ways(&DASH_3).len());
-    // println!("{}", (EMPTY).ways(&DASH_4).len());
-    // println!("{}", (EMPTY).ways(&DASH_5).len());
-
-    // println!("{}", (EMPTY).ways(&BAR_2).len());
-    // println!("{}", (EMPTY).ways(&BAR_3).len());
-    // println!("{}", (EMPTY).ways(&BAR_4).len());
-    // println!("{}", (EMPTY).ways(&BAR_5).len());
-
-    // println!("{}", (EMPTY).ways(&DOT).len());
-    // println!("{}", (EMPTY).ways(&SQUARE_SMALL).len());
-    // println!("{}", (EMPTY).ways(&SQUARE_BIG).len());
+    loop {
+        // TODO ask for pieces (loop)
+        if let Some((pieces, _)) = board.optimize([DASH_4, DOT, TRIPLE_E]) {
+            for (i, piece) in pieces.iter().enumerate() {
+                println!("Piece number {}:\n{}", i + 1, board.display(piece, "O "));
+                board = (&board + piece).simplify();
+            }
+            println!("Result:\n{}\n", board);
+        } else {
+            return println!("Game lost!");
+        }
+    }
 }
