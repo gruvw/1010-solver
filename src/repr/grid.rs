@@ -1,12 +1,7 @@
-use std::{
-    fmt::Display,
-    ops::{self, AddAssign},
-    sync::Mutex,
-};
-
-use super::pieces::Pieces::PIECES;
+use super::pieces::PIECES;
 use itertools::Itertools;
 use rayon::prelude::{ParallelBridge, ParallelIterator};
+use std::{fmt::Display, num::ParseIntError, ops, sync::Mutex};
 
 pub const ROW_LENGTH: u16 = 10;
 pub const NB_ROWS: u16 = ROW_LENGTH;
@@ -20,9 +15,7 @@ pub const COL: Grid = Grid {
     grid: 0x8020080200802008020080200,
     weight: NB_ROWS,
 };
-// (0..NB_ROWS)
-//    .fold(EMPTY, |prev, i| prev + Pieces::DOT.moved(i, 0))
-//    .grid
+// (0..NB_ROWS).fold(EMPTY, |prev, i| &prev + &DOT.moved(i as i32, 0))
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
 pub struct Grid {
@@ -31,20 +24,26 @@ pub struct Grid {
 }
 
 impl Grid {
-    pub fn new(grid: u128) -> Grid {
+    pub const fn new(grid: u128) -> Grid {
         Grid {
             grid,
             weight: grid.count_ones() as u16,
         }
     }
 
-    pub fn from_str(grid: &str) -> Option<Grid> {
+    pub fn from_nb_string(grid: String) -> Result<Grid, ParseIntError> {
         // From binary string or decimal string
-        if let Ok(grid) = u128::from_str_radix(grid, 2).or(u128::from_str_radix(grid, 10)) {
-            Some(Grid::new(grid).simplify())
-        } else {
-            None
-        }
+        u128::from_str_radix(&grid, 2)
+            .or(u128::from_str_radix(&grid, 10))
+            .map(|grid| Grid::new(grid).simplify())
+    }
+
+    pub fn simplify(self) -> Grid {
+        (0..NB_ROWS)
+            .map(|row| ROW.moved(row.into(), 0))
+            .chain((0..ROW_LENGTH).map(|col| COL.moved(0, col.into())))
+            .filter(|g| self.contains(g))
+            .fold(self, |prev, m| prev - &m)
     }
 
     pub fn display(&self, other: &Grid, c: &str) -> String {
@@ -65,8 +64,18 @@ impl Grid {
             }
             grid_str += "\n";
         }
+        let total = self + other;
+        grid_str += &format!("├╴ score: {}\n", total.simplify().score());
+        grid_str += &format!("╰╴ grid: {}", total.grid);
+        grid_str
+    }
 
-        grid_str + "^ grid: " + &(self + other).grid.to_string()
+    pub const fn contains(&self, other: &Grid) -> bool {
+        self.grid & other.grid == other.grid
+    }
+
+    pub const fn fits(&self, other: &Grid) -> bool {
+        self.grid & other.grid == 0
     }
 
     pub const fn moved(&self, row: i32, col: i32) -> Grid {
@@ -82,11 +91,9 @@ impl Grid {
         }
     }
 
-    pub fn fits(&self, other: &Grid) -> bool {
-        self.grid & other.grid == 0
-    }
+    // Helpers
 
-    fn start_non_empty_row(&self) -> Option<Grid> {
+    fn shift_empty_rows(&self) -> Option<Grid> {
         for row in 0..NB_ROWS {
             let row_grid = ROW.moved(row.into(), 0);
             if !self.fits(&row_grid) {
@@ -101,12 +108,14 @@ impl Grid {
         if self.weight != moved.weight {
             return None;
         }
-        if let (Some(rs), Some(rm)) = (self.start_non_empty_row(), moved.start_non_empty_row()) {
+        if let (Some(rs), Some(rm)) = (self.shift_empty_rows(), moved.shift_empty_rows()) {
             for row in 0..NB_ROWS {
                 let row = ROW.moved(row.into(), 0);
                 if self.fits(&row) {
+                    // Back on empty row
                     return Some(moved);
                 } else if (&rs & &row).weight != (&rm & &row).weight {
+                    // Moved has different weight repartition (line wrap occurred)
                     return None;
                 }
             }
@@ -114,54 +123,25 @@ impl Grid {
         None
     }
 
-    pub fn ways(&self, other: &Grid) -> Vec<Grid> {
-        let mut ways = Vec::new();
-        for row in 0..NB_ROWS {
-            for col in 0..ROW_LENGTH {
-                if let Some(moved) = other.valid_moved(row.into(), col.into()) {
-                    if self.fits(&moved) {
-                        ways.push(moved);
-                    }
-                }
-            }
-        }
-        ways
+    fn ways<'a>(&'a self, other: &'a Grid) -> impl Iterator<Item = Grid> + '_ {
+        (0..NB_ROWS)
+            .flat_map(move |row| {
+                (0..ROW_LENGTH).filter_map(move |col| other.valid_moved(row.into(), col.into()))
+            })
+            .filter(|m| self.fits(m))
     }
 
-    pub fn contains(&self, other: &Grid) -> bool {
-        self.grid & other.grid == other.grid
-    }
-
-    pub fn simplify(self) -> Grid {
-        let mut to_remove = Vec::new();
-
-        for row in 0..NB_ROWS {
-            let row = ROW.moved(row.into(), 0);
-            if self.contains(&row) {
-                to_remove.push(row);
-            }
-        }
-
-        for col in 0..ROW_LENGTH {
-            let col = COL.moved(0, col.into());
-            if self.contains(&col) {
-                to_remove.push(col);
-            }
-        }
-
-        to_remove.iter().fold(self, |prev, m| prev - m)
-    }
+    // Decision making
 
     pub fn score(&self) -> u32 {
-        let mut score: u32 = 0;
-        for (piece, prob) in PIECES {
-            score += self.ways(&piece).len() as u32 * piece.weight as u32 * prob
-        }
-        score
+        PIECES
+            .iter()
+            .map(|(piece, prob)| self.ways(&piece).count() as u32 * piece.weight as u32 * prob)
+            .sum()
     }
 
     pub fn optimize(&self, pieces: [Grid; 3]) -> Option<([Grid; 3], Grid)> {
-        // (ordered moved pieces, result_board)
+        // (max score, Option<(ordered moved pieces, result_board)>)
         let max = Mutex::new((0, None));
 
         pieces
@@ -190,25 +170,19 @@ impl Grid {
     }
 }
 
+impl Display for Grid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.display(&EMPTY, ""))
+    }
+}
+
+// Inner Grid operations
+
 impl ops::Add<&Grid> for &Grid {
     type Output = Grid;
 
     fn add(self, rhs: &Grid) -> Self::Output {
         Grid::new(self.grid | rhs.grid)
-    }
-}
-
-impl ops::Add<Grid> for Grid {
-    type Output = Grid;
-
-    fn add(self, rhs: Grid) -> Self::Output {
-        &self + &rhs
-    }
-}
-
-impl AddAssign<&Grid> for Grid {
-    fn add_assign(&mut self, rhs: &Grid) {
-        *self = Grid::new(self.grid + rhs.grid)
     }
 }
 
@@ -220,24 +194,10 @@ impl ops::Sub<&Grid> for Grid {
     }
 }
 
-impl ops::Sub<Grid> for Grid {
-    type Output = Grid;
-
-    fn sub(self, rhs: Grid) -> Self::Output {
-        self - &rhs
-    }
-}
-
 impl ops::BitAnd<&Grid> for &Grid {
     type Output = Grid;
 
     fn bitand(self, rhs: &Grid) -> Self::Output {
         Grid::new(self.grid & rhs.grid)
-    }
-}
-
-impl Display for Grid {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.display(&EMPTY, ""))
     }
 }

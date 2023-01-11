@@ -1,30 +1,56 @@
-use super::grid;
+use self::Pieces::*;
+use super::grid::{self, Grid};
+use phf::{phf_map, Map};
 
+// (piece, relative probability)
+pub const PIECES: [(Grid, u32); 19] = [
+    (DOT, 2),
+    (DASH_2, 3),
+    (DASH_3, 3),
+    (DASH_4, 2),
+    (DASH_5, 2),
+    (BAR_2, 3),
+    (BAR_3, 3),
+    (BAR_4, 2),
+    (BAR_5, 2),
+    (DOUBLE_N, 2),
+    (DOUBLE_E, 2),
+    (DOUBLE_S, 2),
+    (DOUBLE_W, 2),
+    (TRIPLE_N, 1),
+    (TRIPLE_E, 1),
+    (TRIPLE_S, 1),
+    (TRIPLE_W, 1),
+    (SQUARE_SMALL, 6),
+    (SQUARE_BIG, 2),
+];
+
+pub static PIECES_NAME: Map<&'static str, Grid> = phf_map!(
+    "d" => DOT,
+    "d2" => DASH_2,
+    "d3" => DASH_3,
+    "d4" => DASH_4,
+    "d5" => DASH_5,
+    "b2" => BAR_2,
+    "b3" => BAR_3,
+    "b4" => BAR_4,
+    "b5" => BAR_5,
+    "dn" => DOUBLE_N,
+    "de" => DOUBLE_E,
+    "ds" => DOUBLE_S,
+    "dw" => DOUBLE_W,
+    "tn" => TRIPLE_N,
+    "te" => TRIPLE_E,
+    "ts" => TRIPLE_S,
+    "tw" => TRIPLE_W,
+    "ss" => SQUARE_SMALL,
+    "sb" => SQUARE_BIG,
+);
+
+// "Enum like" for pieces
 #[allow(non_snake_case)]
 pub mod Pieces {
     use super::grid::{Grid, NB_ROWS, ROW_LENGTH};
-
-    pub const PIECES: [(Grid, u32); 19] = [
-        (DOT, 2),
-        (DASH_2, 3),
-        (DASH_3, 3),
-        (DASH_4, 2),
-        (DASH_5, 2),
-        (BAR_2, 3),
-        (BAR_3, 3),
-        (BAR_4, 2),
-        (BAR_5, 2),
-        (DOUBLE_N, 2),
-        (DOUBLE_E, 2),
-        (DOUBLE_S, 2),
-        (DOUBLE_W, 2),
-        (TRIPLE_N, 1),
-        (TRIPLE_E, 1),
-        (TRIPLE_S, 1),
-        (TRIPLE_W, 1),
-        (SQUARE_SMALL, 6),
-        (SQUARE_BIG, 2),
-    ];
 
     pub const DOT: Grid = Grid {
         grid: 1 << ROW_LENGTH * NB_ROWS - 1,
