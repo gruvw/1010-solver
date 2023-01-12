@@ -1,14 +1,19 @@
 use super::pieces::PIECES;
-use itertools::Itertools;
 use rayon::prelude::{ParallelBridge, ParallelIterator};
-use std::{fmt::Display, num::ParseIntError, ops, sync::Mutex};
+use std::{
+    fmt::{Display, Write},
+    num::ParseIntError,
+    ops,
+    str::FromStr,
+    sync::Mutex,
+};
 
 pub const ROW_LENGTH: u16 = 10;
 pub const NB_ROWS: u16 = ROW_LENGTH;
 
 pub const EMPTY: Grid = Grid { grid: 0, weight: 0 };
 pub const ROW: Grid = Grid {
-    grid: (1 << ROW_LENGTH) - 1 << ROW_LENGTH * (NB_ROWS - 1),
+    grid: ((1 << ROW_LENGTH) - 1) << (ROW_LENGTH * (NB_ROWS - 1)),
     weight: ROW_LENGTH,
 };
 pub const COL: Grid = Grid {
@@ -17,7 +22,7 @@ pub const COL: Grid = Grid {
 };
 // (0..NB_ROWS).fold(EMPTY, |prev, i| &prev + &DOT.moved(i as i32, 0))
 
-#[derive(Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct Grid {
     pub grid: u128,
     pub weight: u16,
@@ -34,7 +39,7 @@ impl Grid {
     pub fn from_nb_string(grid: String) -> Result<Grid, ParseIntError> {
         // From binary string or decimal string
         u128::from_str_radix(&grid, 2)
-            .or(u128::from_str_radix(&grid, 10))
+            .or_else(|_| grid.parse::<u128>())
             .map(|grid| Grid::new(grid).simplify())
     }
 
@@ -47,8 +52,7 @@ impl Grid {
     }
 
     pub fn display(&self, other: &Grid, c: &str) -> String {
-        let mut grid_str = String::new();
-        grid_str += "  0 1 2 3 4 5 6 7 8 9\n";
+        let mut grid_str = String::from_str("  0 1 2 3 4 5 6 7 8 9\n").unwrap();
 
         for row in (0..NB_ROWS).rev() {
             grid_str += &((NB_ROWS - row - 1).to_string() + " ");
@@ -65,8 +69,8 @@ impl Grid {
             grid_str += "\n";
         }
         let total = self + other;
-        grid_str += &format!("├╴ score: {}\n", total.simplify().score());
-        grid_str += &format!("╰╴ grid: {}", total.grid);
+        writeln!(grid_str, "├╴ score: {}", total.simplify().score()).unwrap();
+        write!(grid_str, "╰╴ grid: {}", total.grid).unwrap();
         grid_str
     }
 
@@ -136,37 +140,35 @@ impl Grid {
     pub fn score(&self) -> u32 {
         PIECES
             .iter()
-            .map(|(piece, prob)| self.ways(&piece).count() as u32 * piece.weight as u32 * prob)
+            .map(|(piece, prob)| self.ways(piece).count() as u32 * piece.weight as u32 * prob)
             .sum()
     }
 
-    pub fn optimize(&self, pieces: [Grid; 3]) -> Option<([Grid; 3], Grid)> {
+    pub fn optimize<'a>(&'a self, pieces: &[Grid]) -> Option<(Vec<Grid>, Grid)> {
+        if pieces.is_empty() {
+            return Some((pieces.to_vec(), *self));
+        }
+
         // (max score, Option<(ordered moved pieces, result_board)>)
         let max = Mutex::new((0, None));
 
-        pieces
-            .iter()
-            .permutations(pieces.len())
-            .unique()
-            .par_bridge()
-            .for_each(|pieces| {
-                for way1 in self.ways(&pieces[0]) {
-                    let res1 = (self + &way1).simplify();
-                    for way2 in res1.ways(&pieces[1]) {
-                        let res2 = (&res1 + &way2).simplify();
-                        for way3 in res2.ways(&pieces[2]) {
-                            let res3 = (&res2 + &way3).simplify();
-                            let score = res3.score();
-                            let mut max = max.lock().unwrap();
-                            if score > max.0 {
-                                *max = (score, Some(([way1, way2, way3], res3)));
-                            }
-                        }
+        (0..pieces.len()).par_bridge().for_each(|i| {
+            let tail = [&pieces[..i], &pieces[i + 1..]].concat();
+            for way in self.ways(&pieces[i]) {
+                if let Some((pieces, res)) = (self + &way).simplify().optimize(&tail) {
+                    let score = res.score();
+                    let mut max = max.lock().unwrap();
+                    if score > max.0 {
+                        let mut pieces = pieces.clone();
+                        pieces.insert(0, way);
+                        *max = (score, Some((pieces, res)));
                     }
                 }
-            });
+            }
+        });
 
-        return max.lock().unwrap().1;
+        let value = max.lock().unwrap().clone().1;
+        value
     }
 }
 
