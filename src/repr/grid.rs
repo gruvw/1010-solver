@@ -1,4 +1,5 @@
 use super::pieces::PIECES;
+use itertools::Itertools;
 use rayon::prelude::{ParallelBridge, ParallelIterator};
 use std::{
     fmt::{Display, Write},
@@ -144,28 +145,38 @@ impl Grid {
             .sum()
     }
 
-    pub fn optimize<'a>(&'a self, pieces: &[Grid]) -> Option<(Vec<Grid>, Grid)> {
-        if pieces.is_empty() {
-            return Some((pieces.to_vec(), *self));
+    pub fn optimize(&self, pieces: &[Grid]) -> Option<(Vec<Grid>, Grid)> {
+        fn for_ways(grid: &Grid, pieces: &[&Grid], history: Vec<Grid>) -> Vec<(Vec<Grid>, Grid)> {
+            match pieces {
+                [] => return vec![(history, *grid)],
+                [piece, tail @ ..] => grid
+                    .ways(piece)
+                    .flat_map(|way| {
+                        let mut history = history.clone();
+                        history.push(way);
+                        for_ways(&(grid + &way).simplify(), tail, history)
+                    })
+                    .collect_vec(),
+            }
         }
 
         // (max score, Option<(ordered moved pieces, result_board)>)
         let max = Mutex::new((0, None));
 
-        (0..pieces.len()).par_bridge().for_each(|i| {
-            let tail = [&pieces[..i], &pieces[i + 1..]].concat();
-            for way in self.ways(&pieces[i]) {
-                if let Some((pieces, res)) = (self + &way).simplify().optimize(&tail) {
+        pieces
+            .iter()
+            .permutations(pieces.len())
+            .unique()
+            .par_bridge()
+            .for_each(|pieces| {
+                for (history, res) in for_ways(self, &pieces, Vec::new()) {
                     let score = res.score();
                     let mut max = max.lock().unwrap();
                     if score > max.0 {
-                        let mut pieces = pieces.clone();
-                        pieces.insert(0, way);
-                        *max = (score, Some((pieces, res)));
+                        *max = (score, Some((history, res)));
                     }
                 }
-            }
-        });
+            });
 
         let value = max.lock().unwrap().clone().1;
         value
